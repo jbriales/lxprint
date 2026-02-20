@@ -268,6 +268,7 @@ export class LXPrinter extends Printer<LXPrinterStatus> {
 
     for (const line of this.printingImage.generatePrintData()) {
       await this.sendChar?.writeValueWithoutResponse(line);
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     const lastLine = new Uint8Array(100);
