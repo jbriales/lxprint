@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -21,7 +20,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,7 +108,7 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Left column: connect/disconnect + font size
+                // Left column: connect/disconnect
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -132,24 +130,6 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
                             Text("Disconnect")
                         }
                     }
-
-                    // Font size input
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("Size", style = MaterialTheme.typography.bodyLarge)
-                        OutlinedTextField(
-                            value = state.fontSize.toString(),
-                            onValueChange = { value ->
-                                value.toIntOrNull()?.let { viewModel.onFontSizeChanged(it) }
-                            },
-                            modifier = Modifier.width(80.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                        )
-                        Text("px", style = MaterialTheme.typography.bodyMedium)
-                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -168,6 +148,29 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Print")
                 }
+            }
+
+            // Font size controls: full-width toggle + slider
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Full width", style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = state.fullWidth,
+                    onCheckedChange = { viewModel.onFullWidthChanged(it) },
+                )
+                Slider(
+                    value = state.fontSize.toFloat(),
+                    onValueChange = { viewModel.onFontSizeChanged(it.toInt()) },
+                    valueRange = 16f..384f,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "${state.fontSize}px",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(48.dp),
+                )
             }
 
             // Bitmap preview (tap to type)

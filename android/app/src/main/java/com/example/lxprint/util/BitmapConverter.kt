@@ -100,6 +100,15 @@ object BitmapConverter {
         return lines
     }
 
+    fun computeFullWidthFontSize(text: String): Float {
+        val refSize = 100f
+        val paint = Paint().apply { textSize = refSize; typeface = Typeface.MONOSPACE }
+        val lines = text.split("\n")
+        val maxWidth = lines.maxOfOrNull { paint.measureText(it) } ?: return refSize
+        if (maxWidth <= 0f) return refSize
+        return refSize * IMAGE_WIDTH / maxWidth
+    }
+
     fun generateLastLine(printLength: Int): ByteArray {
         val line = ByteArray(PACKET_SIZE)
         line[0] = 0x55

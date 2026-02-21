@@ -20,6 +20,7 @@ data class PrinterUiState(
     val bleState: BleState = BleState.DISCONNECTED,
     val text: String = "",
     val fontSize: Int = 190,
+    val fullWidth: Boolean = true,
     val error: String? = null,
     val printerStatus: LxProtocol.PrinterStatus? = null,
 )
@@ -61,7 +62,22 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onFontSizeChanged(size: Int) {
-        _uiState.update { it.copy(fontSize = size) }
+        _uiState.update { it.copy(fontSize = size, fullWidth = false) }
+        updatePreview()
+    }
+
+    fun onFullWidthChanged(enabled: Boolean) {
+        if (enabled) {
+            val text = _uiState.value.text
+            val computed = if (text.isNotBlank()) {
+                BitmapConverter.computeFullWidthFontSize(text).toInt().coerceIn(16, 384)
+            } else {
+                _uiState.value.fontSize
+            }
+            _uiState.update { it.copy(fullWidth = true, fontSize = computed) }
+        } else {
+            _uiState.update { it.copy(fullWidth = false) }
+        }
         updatePreview()
     }
 
@@ -71,9 +87,18 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
             _previewBitmap.value = null
             return
         }
+        val fontSize = if (state.fullWidth) {
+            val computed = BitmapConverter.computeFullWidthFontSize(state.text).toInt().coerceIn(16, 384)
+            if (computed != state.fontSize) {
+                _uiState.update { it.copy(fontSize = computed) }
+            }
+            computed
+        } else {
+            state.fontSize
+        }
         viewModelScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                BitmapConverter.textToBitmap(state.text, state.fontSize.toFloat())
+                BitmapConverter.textToBitmap(state.text, fontSize.toFloat())
             }
             _previewBitmap.value = bmp
         }
