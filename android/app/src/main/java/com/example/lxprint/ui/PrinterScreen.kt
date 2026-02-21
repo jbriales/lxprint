@@ -8,16 +8,22 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.lxprint.ble.BleState
 import com.example.lxprint.viewmodel.PrinterViewModel
@@ -53,7 +59,7 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("LxPrint") })
+            TopAppBar(title = { Text("LX Label Print") })
         }
     ) { padding ->
         Column(
@@ -95,78 +101,102 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
                 )
             }
 
-            // Connect / Disconnect button
+            // Controls row: left side has connect + size, right side has Print button
             val isDisconnected = state.bleState == BleState.DISCONNECTED
             val isConnectedOrPrinting = state.bleState == BleState.CONNECTED ||
                     state.bleState == BleState.PRINTING
 
-            if (isDisconnected) {
-                Button(onClick = {
-                    if (permissionsGranted) {
-                        viewModel.connect()
-                    } else {
-                        permissionLauncher.launch(requiredPermissions)
-                    }
-                }) {
-                    Text("Connect")
-                }
-            } else {
-                OutlinedButton(
-                    onClick = { viewModel.disconnect() },
-                    enabled = !isDisconnected,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // Left column: connect/disconnect + font size
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Disconnect")
+                    if (isDisconnected) {
+                        Button(onClick = {
+                            if (permissionsGranted) {
+                                viewModel.connect()
+                            } else {
+                                permissionLauncher.launch(requiredPermissions)
+                            }
+                        }) {
+                            Text("Connect")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { viewModel.disconnect() },
+                            enabled = !isDisconnected,
+                        ) {
+                            Text("Disconnect")
+                        }
+                    }
+
+                    // Font size input
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Size", style = MaterialTheme.typography.bodyLarge)
+                        OutlinedTextField(
+                            value = state.fontSize.toString(),
+                            onValueChange = { value ->
+                                value.toIntOrNull()?.let { viewModel.onFontSizeChanged(it) }
+                            },
+                            modifier = Modifier.width(80.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                        )
+                        Text("px", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Print button
+                Button(
+                    onClick = { viewModel.print() },
+                    enabled = state.bleState == BleState.CONNECTED && state.text.isNotBlank(),
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Print")
                 }
             }
 
-            // Text input
-            OutlinedTextField(
+            // Bitmap preview (tap to type)
+            BasicTextField(
                 value = state.text,
                 onValueChange = viewModel::onTextChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Label text") },
-                minLines = 3,
-                maxLines = 5,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 60.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outline)
+                    .background(Color.White),
+                textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
+                cursorBrush = SolidColor(Color.Transparent),
+                decorationBox = { innerTextField ->
+                    Box {
+                        previewBitmap?.let { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Label preview",
+                                modifier = Modifier.fillMaxWidth(),
+                                contentScale = ContentScale.FillWidth,
+                            )
+                        }
+                        // Hidden but required for keyboard input
+                        innerTextField()
+                    }
+                },
             )
 
-            // Font size input
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Size", style = MaterialTheme.typography.bodyLarge)
-                OutlinedTextField(
-                    value = state.fontSize.toString(),
-                    onValueChange = { value ->
-                        value.toIntOrNull()?.let { viewModel.onFontSizeChanged(it) }
-                    },
-                    modifier = Modifier.width(80.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
-                Text("px", style = MaterialTheme.typography.bodyMedium)
-            }
-
-            // Bitmap preview
-            previewBitmap?.let { bmp ->
-                Image(
-                    bitmap = bmp.asImageBitmap(),
-                    contentDescription = "Label preview",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline)
-                        .background(Color.White),
-                    contentScale = ContentScale.FillWidth,
-                )
-            }
-
-            // Print button
-            Button(
-                onClick = { viewModel.print() },
-                enabled = state.bleState == BleState.CONNECTED && state.text.isNotBlank(),
-            ) {
-                Text("Print")
-            }
         }
     }
 }
