@@ -20,7 +20,7 @@ object BitmapConverter {
     private const val LINE_HEADER_SIZE = 3  // 0x55 + 2-byte line index
     private const val DATA_PER_PACKET = PADDED_ROW_BYTES + LINE_HEADER_SIZE  // 99, fits in 100
 
-    fun textToBitmap(text: String, textSizePx: Float = 190f): Bitmap {
+    fun textToBitmap(text: String, textSizePx: Float = 190f, padding: Int = 4): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.BLACK
             textSize = textSizePx
@@ -42,11 +42,40 @@ object BitmapConverter {
             canvas.drawText(line, IMAGE_WIDTH / 2f, y, paint)
         }
 
-        return bmp
+        // Scan for ink bounds (first/last rows containing non-white pixels)
+        val pixels = IntArray(IMAGE_WIDTH * height)
+        bmp.getPixels(pixels, 0, IMAGE_WIDTH, 0, 0, IMAGE_WIDTH, height)
+        val white = Color.WHITE
+
+        var topRow = 0
+        findTop@ for (y in 0 until height) {
+            for (x in 0 until IMAGE_WIDTH) {
+                if (pixels[y * IMAGE_WIDTH + x] != white) {
+                    topRow = y; break@findTop
+                }
+            }
+        }
+        var bottomRow = height - 1
+        findBottom@ for (y in height - 1 downTo topRow) {
+            for (x in 0 until IMAGE_WIDTH) {
+                if (pixels[y * IMAGE_WIDTH + x] != white) {
+                    bottomRow = y; break@findBottom
+                }
+            }
+        }
+
+        // Crop to ink bounds + padding
+        val cropTop = (topRow - padding).coerceAtLeast(0)
+        val cropBottom = (bottomRow + padding).coerceAtMost(height - 1)
+        val croppedHeight = (cropBottom - cropTop + 1).coerceAtLeast(1)
+
+        val cropped = Bitmap.createBitmap(bmp, 0, cropTop, IMAGE_WIDTH, croppedHeight)
+        if (cropped !== bmp) bmp.recycle()
+        return cropped
     }
 
-    fun textToBitmapData(text: String, textSizePx: Float = 190f): PrintBitmapData {
-        val bmp = textToBitmap(text, textSizePx)
+    fun textToBitmapData(text: String, textSizePx: Float = 190f, padding: Int = 4): PrintBitmapData {
+        val bmp = textToBitmap(text, textSizePx, padding)
         val height = bmp.height
 
         val pixels = IntArray(IMAGE_WIDTH * height)

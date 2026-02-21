@@ -173,6 +173,25 @@ fun PrinterScreen(viewModel: PrinterViewModel = viewModel()) {
                 )
             }
 
+            // Padding control
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Pad", style = MaterialTheme.typography.bodyMedium)
+                Slider(
+                    value = state.padding.toFloat(),
+                    onValueChange = { viewModel.onPaddingChanged(it.toInt()) },
+                    valueRange = 0f..50f,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "${state.padding}px",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(48.dp),
+                )
+            }
+
             // Bitmap preview (tap to type)
             BasicTextField(
                 value = state.text,

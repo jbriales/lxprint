@@ -20,6 +20,7 @@ data class PrinterUiState(
     val bleState: BleState = BleState.DISCONNECTED,
     val text: String = "",
     val fontSize: Int = 190,
+    val padding: Int = 4,
     val fullWidth: Boolean = true,
     val error: String? = null,
     val printerStatus: LxProtocol.PrinterStatus? = null,
@@ -66,6 +67,11 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
         updatePreview()
     }
 
+    fun onPaddingChanged(padding: Int) {
+        _uiState.update { it.copy(padding = padding) }
+        updatePreview()
+    }
+
     fun onFullWidthChanged(enabled: Boolean) {
         if (enabled) {
             val text = _uiState.value.text
@@ -98,7 +104,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                BitmapConverter.textToBitmap(state.text, fontSize.toFloat())
+                BitmapConverter.textToBitmap(state.text, fontSize.toFloat(), state.padding)
             }
             _previewBitmap.value = bmp
         }
@@ -120,7 +126,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             val bitmapData = withContext(Dispatchers.Default) {
-                BitmapConverter.textToBitmapData(text, _uiState.value.fontSize.toFloat())
+                BitmapConverter.textToBitmapData(text, _uiState.value.fontSize.toFloat(), _uiState.value.padding)
             }
             bleManager.print(bitmapData)
         }
