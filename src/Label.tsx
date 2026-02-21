@@ -18,27 +18,89 @@ function LabelSvg({
   align,
   font,
   fontSize,
+  padding,
 }: {
   text: string;
   onChange: (svg: string, height: number) => void;
   align: AlignmentType;
   font: string;
   fontSize: number;
+  padding: number;
 }) {
   const ref = useRef<SVGSVGElement>(null);
-  const [height, setHeight] = useState<number>(0);
 
   useEffect(() => {
-    if (ref.current) {
-      const textElement = ref.current.getElementById(
-        "labelText",
-      ) as SVGTextElement;
-      const bbox = textElement.getBoundingClientRect();
-      const measuredHeight = Math.max(bbox.height, textElement.clientHeight);
-      setHeight(measuredHeight);
-      onChange(ref.current.outerHTML, measuredHeight);
-    }
-  }, [text, height, align, font, fontSize]);
+    if (!ref.current) return;
+    let cancelled = false;
+    const svg = ref.current;
+    const lineCount = text.split("\n").length;
+    const generousHeight = Math.ceil(fontSize * lineCount * 2);
+
+    // Set generous dimensions so all text is visible for measurement
+    svg.setAttribute("width", String(CANVAS_WIDTH));
+    svg.setAttribute("height", String(generousHeight));
+    svg.setAttribute("viewBox", `0 0 ${CANVAS_WIDTH} ${generousHeight}`);
+    svg.style.width = `${CANVAS_WIDTH}px`;
+    svg.style.height = `${generousHeight}px`;
+
+    const svgString = svg.outerHTML;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+
+      // Render to temp canvas for pixel scanning
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = CANVAS_WIDTH;
+      tempCanvas.height = generousHeight;
+      const ctx = tempCanvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(image, 0, 0, CANVAS_WIDTH, generousHeight);
+
+      // Scan for actual ink bounds (alpha > 0 on transparent background)
+      const data = ctx.getImageData(0, 0, CANVAS_WIDTH, generousHeight);
+      let topRow = -1;
+      let bottomRow = -1;
+
+      for (let y = 0; y < generousHeight && topRow < 0; y++) {
+        for (let x = 0; x < CANVAS_WIDTH; x++) {
+          if (data.data[(y * CANVAS_WIDTH + x) * 4 + 3] > 0) {
+            topRow = y;
+            break;
+          }
+        }
+      }
+
+      for (let y = generousHeight - 1; y >= 0 && bottomRow < 0; y--) {
+        for (let x = 0; x < CANVAS_WIDTH; x++) {
+          if (data.data[(y * CANVAS_WIDTH + x) * 4 + 3] > 0) {
+            bottomRow = y;
+            break;
+          }
+        }
+      }
+
+      if (topRow < 0 || bottomRow < 0) {
+        onChange(svgString, 1);
+        return;
+      }
+
+      const inkHeight = bottomRow - topRow + 1;
+      const croppedHeight = inkHeight + 2 * padding;
+      const cropY = Math.max(0, topRow - padding);
+
+      // Set tight viewBox directly on DOM, then serialize
+      svg.setAttribute("height", String(croppedHeight));
+      svg.setAttribute("viewBox", `0 ${cropY} ${CANVAS_WIDTH} ${croppedHeight}`);
+      svg.style.height = `${croppedHeight}px`;
+
+      onChange(svg.outerHTML, croppedHeight);
+    };
+    image.src = `data:image/svg+xml;base64,${btoa(svgString)}`;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [text, align, font, fontSize, padding]);
 
   const [xPos, textAnchor] = ((): [number, "start" | "middle" | "end"] => {
     switch (align) {
@@ -55,14 +117,7 @@ function LabelSvg({
 
   return (
     <div style={{ visibility: "hidden", position: "absolute" }}>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={CANVAS_WIDTH}
-        height={height}
-        viewBox={`0, 0, ${CANVAS_WIDTH} ${height}`}
-        ref={ref}
-        style={{ width: CANVAS_WIDTH, height: height }}
-      >
+      <svg xmlns="http://www.w3.org/2000/svg" ref={ref}>
         <text
           x={xPos}
           y="0"
@@ -89,6 +144,7 @@ function LabelCanvas({
   align,
   font,
   fontSize,
+  padding,
   length,
   onChangeBitmap,
 }: {
@@ -96,6 +152,7 @@ function LabelCanvas({
   align: AlignmentType;
   font: string;
   fontSize: number;
+  padding: number;
   length: number | null;
   onChangeBitmap: (x: ImageData) => void;
 }) {
@@ -179,6 +236,7 @@ function LabelCanvas({
         align={align}
         font={font}
         fontSize={fontSize}
+        padding={padding}
       />
       <div
         style={{
@@ -308,6 +366,7 @@ export function LabelMaker() {
   const [bitmap, setBitmap] = useState<ImageData>();
   const [font, setFont] = useState<string>("sans-serif");
   const [fontSize, setFontSize] = useState<number>(190);
+  const [padding, setPadding] = useState<number>(4);
   const [length, setLength] = useState<number | null>(null);
 
   const { printer, printerStatus } = use(PrinterContext);
@@ -325,6 +384,7 @@ export function LabelMaker() {
         align={align}
         font={font}
         fontSize={fontSize}
+        padding={padding}
         length={length}
         onChangeBitmap={(x: ImageData) => setBitmap(x)}
       />
@@ -342,6 +402,17 @@ export function LabelMaker() {
             style={{ width: "4em" }}
           />
           px
+        </label>
+        <label>
+          Pad{" "}
+          <input
+            type="range"
+            value={padding}
+            onChange={(e) => setPadding(Number(e.target.value))}
+            min={0}
+            max={50}
+          />{" "}
+          {padding}px
         </label>
         <LengthSelect length={length} setLength={setLength} />
         <div>
