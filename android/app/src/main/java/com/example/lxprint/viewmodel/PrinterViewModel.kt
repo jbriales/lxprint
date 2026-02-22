@@ -2,8 +2,11 @@ package com.example.lxprint.viewmodel
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.Typeface
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.lxprint.R
 import com.example.lxprint.ble.BleEvent
 import com.example.lxprint.ble.BleManager
 import com.example.lxprint.ble.BleState
@@ -29,6 +32,8 @@ data class PrinterUiState(
 class PrinterViewModel(application: Application) : AndroidViewModel(application) {
 
     private val bleManager = BleManager(application.applicationContext)
+
+    private val typeface: Typeface = ResourcesCompat.getFont(application, R.font.ocr_b) ?: Typeface.MONOSPACE
 
     private val _uiState = MutableStateFlow(PrinterUiState())
     val uiState: StateFlow<PrinterUiState> = _uiState
@@ -76,7 +81,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
         if (enabled) {
             val text = _uiState.value.text
             val computed = if (text.isNotBlank()) {
-                BitmapConverter.computeFullWidthFontSize(text).toInt().coerceIn(16, 384)
+                BitmapConverter.computeFullWidthFontSize(text, typeface).toInt().coerceIn(16, 384)
             } else {
                 _uiState.value.fontSize
             }
@@ -94,7 +99,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         val fontSize = if (state.fullWidth) {
-            val computed = BitmapConverter.computeFullWidthFontSize(state.text).toInt().coerceIn(16, 384)
+            val computed = BitmapConverter.computeFullWidthFontSize(state.text, typeface).toInt().coerceIn(16, 384)
             if (computed != state.fontSize) {
                 _uiState.update { it.copy(fontSize = computed) }
             }
@@ -104,7 +109,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             val bmp = withContext(Dispatchers.Default) {
-                BitmapConverter.textToBitmap(state.text, fontSize.toFloat(), state.padding)
+                BitmapConverter.textToBitmap(state.text, fontSize.toFloat(), state.padding, typeface)
             }
             _previewBitmap.value = bmp
         }
@@ -126,7 +131,7 @@ class PrinterViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             val bitmapData = withContext(Dispatchers.Default) {
-                BitmapConverter.textToBitmapData(text, _uiState.value.fontSize.toFloat(), _uiState.value.padding)
+                BitmapConverter.textToBitmapData(text, _uiState.value.fontSize.toFloat(), _uiState.value.padding, typeface)
             }
             bleManager.print(bitmapData)
         }

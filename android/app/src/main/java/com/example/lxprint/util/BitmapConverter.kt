@@ -20,11 +20,11 @@ object BitmapConverter {
     private const val LINE_HEADER_SIZE = 3  // 0x55 + 2-byte line index
     private const val DATA_PER_PACKET = PADDED_ROW_BYTES + LINE_HEADER_SIZE  // 99, fits in 100
 
-    fun textToBitmap(text: String, textSizePx: Float = 190f, padding: Int = 4): Bitmap {
+    fun textToBitmap(text: String, textSizePx: Float = 190f, padding: Int = 4, typeface: Typeface = Typeface.MONOSPACE): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.BLACK
             textSize = textSizePx
-            typeface = Typeface.MONOSPACE
+            this.typeface = typeface
             textAlign = Paint.Align.CENTER
         }
 
@@ -74,8 +74,8 @@ object BitmapConverter {
         return cropped
     }
 
-    fun textToBitmapData(text: String, textSizePx: Float = 190f, padding: Int = 4): PrintBitmapData {
-        val bmp = textToBitmap(text, textSizePx, padding)
+    fun textToBitmapData(text: String, textSizePx: Float = 190f, padding: Int = 4, typeface: Typeface = Typeface.MONOSPACE): PrintBitmapData {
+        val bmp = textToBitmap(text, textSizePx, padding, typeface)
         val height = bmp.height
 
         val pixels = IntArray(IMAGE_WIDTH * height)
@@ -129,9 +129,9 @@ object BitmapConverter {
         return lines
     }
 
-    fun computeFullWidthFontSize(text: String): Float {
+    fun computeFullWidthFontSize(text: String, typeface: Typeface = Typeface.MONOSPACE): Float {
         val refSize = 100f
-        val paint = Paint().apply { textSize = refSize; typeface = Typeface.MONOSPACE }
+        val paint = Paint().apply { textSize = refSize; this.typeface = typeface }
         val lines = text.split("\n")
         val maxWidth = lines.maxOfOrNull { paint.measureText(it) } ?: return refSize
         if (maxWidth <= 0f) return refSize

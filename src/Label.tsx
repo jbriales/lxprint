@@ -12,6 +12,31 @@ type AlignmentType = "left" | "center" | "right";
 
 const CANVAS_WIDTH = 384;
 
+// Load OCR-B font as base64 data URL for SVG embedding.
+// The SVG-as-data-URI pipeline runs in an isolated context that cannot
+// access page CSS @font-face, so the font must be embedded inside the SVG.
+let ocrBFontDataUrl: string | null = null;
+const ocrBFontPromise = fetch(
+  `${import.meta.env.BASE_URL}fonts/OCR-B.otf`,
+)
+  .then((r) => r.arrayBuffer())
+  .then((buf) => {
+    const binary = Array.from(new Uint8Array(buf))
+      .map((b) => String.fromCharCode(b))
+      .join("");
+    ocrBFontDataUrl = `data:font/opentype;base64,${btoa(binary)}`;
+  })
+  .catch((e) => console.error("Failed to load OCR-B font:", e));
+
+function useOcrBFont(): string | null {
+  const [dataUrl, setDataUrl] = useState<string | null>(ocrBFontDataUrl);
+  useEffect(() => {
+    if (dataUrl) return;
+    ocrBFontPromise.then(() => setDataUrl(ocrBFontDataUrl));
+  }, [dataUrl]);
+  return dataUrl;
+}
+
 function LabelSvg({
   text,
   onChange,
@@ -19,6 +44,7 @@ function LabelSvg({
   font,
   fontSize,
   padding,
+  fontDataUrl,
 }: {
   text: string;
   onChange: (svg: string, height: number) => void;
@@ -26,11 +52,14 @@ function LabelSvg({
   font: string;
   fontSize: number;
   padding: number;
+  fontDataUrl: string | null;
 }) {
   const ref = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
+    // Wait for font data to load when using OCR-B
+    if (font === "OCR-B" && !fontDataUrl) return;
     let cancelled = false;
     const svg = ref.current;
     const lineCount = text.split("\n").length;
@@ -95,12 +124,12 @@ function LabelSvg({
 
       onChange(svg.outerHTML, croppedHeight);
     };
-    image.src = `data:image/svg+xml;base64,${btoa(svgString)}`;
+    image.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
 
     return () => {
       cancelled = true;
     };
-  }, [text, align, font, fontSize, padding]);
+  }, [text, align, font, fontSize, padding, fontDataUrl]);
 
   const [xPos, textAnchor] = ((): [number, "start" | "middle" | "end"] => {
     switch (align) {
@@ -118,6 +147,11 @@ function LabelSvg({
   return (
     <div style={{ visibility: "hidden", position: "absolute" }}>
       <svg xmlns="http://www.w3.org/2000/svg" ref={ref}>
+        {font === "OCR-B" && fontDataUrl && (
+          <defs>
+            <style>{`@font-face { font-family: 'OCR-B'; src: url('${fontDataUrl}') format('opentype'); }`}</style>
+          </defs>
+        )}
         <text
           x={xPos}
           y="0"
@@ -146,6 +180,7 @@ function LabelCanvas({
   fontSize,
   padding,
   length,
+  fontDataUrl,
   onChangeBitmap,
 }: {
   text: string;
@@ -154,6 +189,7 @@ function LabelCanvas({
   fontSize: number;
   padding: number;
   length: number | null;
+  fontDataUrl: string | null;
   onChangeBitmap: (x: ImageData) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -224,7 +260,7 @@ function LabelCanvas({
         }
       };
 
-      image.src = `data:image/svg+xml;base64,${btoa(svgData)}`;
+      image.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`;
     }
   }, [svgData, length]);
 
@@ -237,6 +273,7 @@ function LabelCanvas({
         font={font}
         fontSize={fontSize}
         padding={padding}
+        fontDataUrl={fontDataUrl}
       />
       <div
         style={{
@@ -315,6 +352,7 @@ function FontSelect({
 }) {
   return (
     <select value={font} onChange={(e) => setFont(e.target.value)}>
+      <option value="OCR-B">OCR-B</option>
       <option value="serif">serif</option>
       <option value="sans-serif">sans-serif</option>
       <option value="cursive">cursive</option>
@@ -364,10 +402,11 @@ export function LabelMaker() {
   const [text, setText] = useState("Hello");
   const [align, setAlign] = useState<"left" | "center" | "right">("left");
   const [bitmap, setBitmap] = useState<ImageData>();
-  const [font, setFont] = useState<string>("sans-serif");
+  const [font, setFont] = useState<string>("OCR-B");
   const [fontSize, setFontSize] = useState<number>(190);
   const [padding, setPadding] = useState<number>(4);
   const [length, setLength] = useState<number | null>(null);
+  const fontDataUrl = useOcrBFont();
 
   const { printer, printerStatus } = use(PrinterContext);
 
@@ -386,6 +425,7 @@ export function LabelMaker() {
         fontSize={fontSize}
         padding={padding}
         length={length}
+        fontDataUrl={fontDataUrl}
         onChangeBitmap={(x: ImageData) => setBitmap(x)}
       />
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5em" }}>
