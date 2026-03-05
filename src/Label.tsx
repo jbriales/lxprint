@@ -44,6 +44,7 @@ function LabelSvg({
   font,
   fontSize,
   padding,
+  lineSpacing,
   fontDataUrl,
 }: {
   text: string;
@@ -52,6 +53,7 @@ function LabelSvg({
   font: string;
   fontSize: number;
   padding: number;
+  lineSpacing: number;
   fontDataUrl: string | null;
 }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -129,7 +131,7 @@ function LabelSvg({
     return () => {
       cancelled = true;
     };
-  }, [text, align, font, fontSize, padding, fontDataUrl]);
+  }, [text, align, font, fontSize, padding, lineSpacing, fontDataUrl]);
 
   const [xPos, textAnchor] = ((): [number, "start" | "middle" | "end"] => {
     switch (align) {
@@ -163,7 +165,7 @@ function LabelSvg({
           }}
         >
           {text.split("\n").map((x, i) => (
-            <tspan key={i} x={xPos} dy="1em">
+            <tspan key={i} x={xPos} dy={i === 0 ? "1em" : `${lineSpacing}em`}>
               {x}
             </tspan>
           ))}
@@ -179,6 +181,7 @@ function LabelCanvas({
   font,
   fontSize,
   padding,
+  lineSpacing,
   length,
   fontDataUrl,
   onChangeBitmap,
@@ -188,6 +191,7 @@ function LabelCanvas({
   font: string;
   fontSize: number;
   padding: number;
+  lineSpacing: number;
   length: number | null;
   fontDataUrl: string | null;
   onChangeBitmap: (x: ImageData) => void;
@@ -273,6 +277,7 @@ function LabelCanvas({
         font={font}
         fontSize={fontSize}
         padding={padding}
+        lineSpacing={lineSpacing}
         fontDataUrl={fontDataUrl}
       />
       <div
@@ -405,6 +410,7 @@ export function LabelMaker() {
   const [font, setFont] = useState<string>("OCR-B");
   const [fontSize, setFontSize] = useState<number>(190);
   const [padding, setPadding] = useState<number>(4);
+  const [lineSpacing, setLineSpacing] = useState<number>(1.1);
   const [length, setLength] = useState<number | null>(null);
   const fontDataUrl = useOcrBFont();
 
@@ -424,6 +430,7 @@ export function LabelMaker() {
         font={font}
         fontSize={fontSize}
         padding={padding}
+        lineSpacing={lineSpacing}
         length={length}
         fontDataUrl={fontDataUrl}
         onChangeBitmap={(x: ImageData) => setBitmap(x)}
@@ -453,6 +460,18 @@ export function LabelMaker() {
             max={50}
           />{" "}
           {padding}px
+        </label>
+        <label>
+          Line spacing{" "}
+          <input
+            type="range"
+            value={lineSpacing}
+            onChange={(e) => setLineSpacing(Number(e.target.value))}
+            min={0.8}
+            max={2}
+            step={0.05}
+          />{" "}
+          {lineSpacing}em
         </label>
         <LengthSelect length={length} setLength={setLength} />
         <div>
